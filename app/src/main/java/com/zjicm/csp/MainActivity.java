@@ -26,7 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 public class MainActivity extends AppCompatActivity implements TableAdapter.onPlayerClickListener {
-    private final static String HOST = "115.198.209.40";
+    private final static String HOST = "115.198.213.105";
     private final static int PORT = 12345;
 
     private TextView mOnline;
@@ -34,6 +34,8 @@ public class MainActivity extends AppCompatActivity implements TableAdapter.onPl
     private TableAdapter mAdapter;
     public static PlayerAction action;
     public static OnSendCSPListener listener;
+    private TextView mScore;
+    private int score = 0;
     private Socket mSocket = null;
     private ObjectInputStream mObjectInputStream = null;
     private ObjectOutputStream mObjectOutputStream = null;
@@ -76,9 +78,13 @@ public class MainActivity extends AppCompatActivity implements TableAdapter.onPl
                     }
                     startGame();
                 } else if (result.getResultType() == Result.TYPE.CSP_INFO) {
-                    Log.d("WYL", "接受到对手的消息");
-                    listener.onSendCSP(result.getCsp());
+                    Log.d("WYL", "接受到对手的消息:" + result.getMessage());
                 }
+            } else if (msg.what == 1) {
+                if (((String) msg.obj).equals("恭喜你,你赢了!")) {
+                    mScore.setText(score++ + "");
+                }
+                Toast.makeText(MainActivity.this, (String) msg.obj, Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -99,14 +105,13 @@ public class MainActivity extends AppCompatActivity implements TableAdapter.onPl
         TextView mUsername = (TextView) findViewById(R.id.username);
         mOnline = (TextView) findViewById(R.id.online);
         //定义相关变量,完成初始化
-        TextView mScore = (TextView) findViewById(R.id.score);
+        mScore = (TextView) findViewById(R.id.score);
         mTable = (RecyclerView) findViewById(R.id.table);
 
         StaggeredGridLayoutManager sglm = new StaggeredGridLayoutManager(1, 1);
         mTable.setLayoutManager(sglm);
 
         mUsername.setText(IPGetUtil.getIPAddress(this));
-        int score = 0;
         mScore.setText("得分:" + score);
         Log.d("WYL", "本机IP地址:" + IPGetUtil.getIPAddress(MainActivity.this));
     }
@@ -279,7 +284,7 @@ public class MainActivity extends AppCompatActivity implements TableAdapter.onPl
 
     private void startGame() {
         Log.d("WYL", "开始游戏");
-        GameDialog dialog = new GameDialog(this, R.style.style_game, mObjectOutputStream);
+        GameDialog dialog = new GameDialog(this, R.style.style_game, mObjectOutputStream, handler);
         dialog.show();
     }
 

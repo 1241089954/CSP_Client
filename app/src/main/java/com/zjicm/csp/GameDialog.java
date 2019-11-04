@@ -3,7 +3,9 @@ package com.zjicm.csp;
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -23,6 +25,7 @@ public class GameDialog extends Dialog implements View.OnClickListener {
     private TextView mPlayer1;
     private TextView mPlayer2;
     private ObjectOutputStream stream;
+    private boolean isPlayer1Roll = false;
     private boolean isPlayer2Roll = false;
     private static boolean isPlayer2OK = false;
     private String[] strings = new String[]{
@@ -31,13 +34,27 @@ public class GameDialog extends Dialog implements View.OnClickListener {
             "布"
     };
 
+    private Handler mHandler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            if (msg.what == 0){
+                mPlayer1.setText((String)msg.obj);
+            }else {
+                mPlayer2.setText((String)msg.obj);
+            }
+        }
+    };
+
     private int p1;
     private int p2;
 
+    private Handler handler;
 
-    public GameDialog(Context context, int style, ObjectOutputStream stream) {
-        super(context);
+
+    public GameDialog(Context context, int style, ObjectOutputStream stream,Handler handler) {
+        super(context,style);
         this.stream = stream;
+        this.handler = handler;
     }
 
     @Override
@@ -64,54 +81,67 @@ public class GameDialog extends Dialog implements View.OnClickListener {
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.start:
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Random random = new Random();
-                        p1 = random.nextInt(100);
-                        for (int i = 0; i < p1; i++) {
-//                            Log.d("WYL", "当前是:" + i);
-                            mPlayer2.setText(strings[i % 3]);
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        p1 = p1 % 3;
-                        try {
-                            stream.writeObject(new PlayerAction(PlayerAction.ACTION.CSP, p1));
-                            mPlayer2.setText(strings[p1]);
-                            Thread.sleep(1000);
-                            isPlayer2OK = true;
-                            p2 = p1;
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        Log.d("WYL", "线程结束1");
-                    }
-                }).start();
-
-                if (!isPlayer2Roll) {
+                if (!isPlayer1Roll && !isPlayer2Roll) {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            Looper.prepare();
-                            int index = 0;
+
                             isPlayer2Roll = true;
-                            while (!isPlayer2OK) {
+                            Random random = new Random();
+                            p1 = random.nextInt(100);
+                            for (int i = 0; i < p1; i++) {
+//                            Log.d("WYL", "当前是:" + i);
+                                Message message00 = new Message();
+                                message00.what = 1;
+                                message00.obj = strings[i % 3];
+                                mHandler.sendMessage(message00);
                                 try {
-                                    Random random = new Random();
-                                    mPlayer1.setText(strings[random.nextInt(3) % 3]);
                                     Thread.sleep(100);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 }
                             }
-                            mPlayer1.setText(strings[(p2)]);
+                            p1 = p1 % 3;
+                            try {
+                                stream.writeObject(new PlayerAction(PlayerAction.ACTION.CSP, p1));
+                                Message message00 = new Message();
+                                message00.what = 1;
+                                message00.obj = strings[p1];
+                                mHandler.sendMessage(message00);
+                                Thread.sleep(1000);
+                                p2 = p1;
+                                isPlayer2Roll = false;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+//                            Log.d("WYL", "线程结束1");
+                        }
+                    }).start();
+
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            isPlayer1Roll = true;
+                            while (isPlayer2Roll) {
+                                try {
+                                    Random random = new Random();
+                                    Message message10 = new Message();
+                                    message10.what = 0;
+                                    message10.obj = strings[random.nextInt(3) % 3];
+                                    mHandler.sendMessage(message10);
+                                    Thread.sleep(100);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            Message message11 = new Message();
+                            message11.what = 0;
+                            message11.obj = strings[(p2)];
+                            mHandler.sendMessage(message11);
                             judgement(p1, p2);
-                            Looper.loop();
-                            Log.d("WYL", "线程结束2");
+                            isPlayer1Roll = false;
+//                            Log.d("WYL", "线程结束2");
                         }
                     }).start();
                 }
@@ -183,6 +213,9 @@ public class GameDialog extends Dialog implements View.OnClickListener {
                 res = "恭喜你,你输了!";
             }
         }
-        Toast.makeText(getContext(), res, Toast.LENGTH_SHORT).show();
+        Message message = new Message();
+        message.what = 1;
+        message.obj = res;
+        handler.sendMessage(message);
     }
 }
